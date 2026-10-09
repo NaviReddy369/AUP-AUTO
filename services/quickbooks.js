@@ -57,7 +57,7 @@ function getAuthorizeUrl(state) {
 async function handleCallback(callbackUrl, realmId) {
   const authResponse = await oauthClient.createToken(callbackUrl);
   const token = authResponse.getJson();
-  tokenStore.save({ ...token, createdAt: Date.now(), realmId });
+  await tokenStore.save({ ...token, createdAt: Date.now(), realmId });
 }
 
 // Access tokens live ~1 hour, refresh tokens ~100 days.
@@ -72,7 +72,7 @@ async function refreshTokens(saved) {
     const authResponse = await oauthClient.refresh();
     // Intuit may hand back a NEW refresh token – always save the latest one.
     const fresh = { ...saved, ...authResponse.getJson(), createdAt: Date.now() };
-    tokenStore.save(fresh);
+    await tokenStore.save(fresh);
     console.log('[qbo] access token refreshed');
     return fresh;
   } catch (err) {
@@ -83,14 +83,14 @@ async function refreshTokens(saved) {
 
 // Returns { access_token, realmId, ... } that is safe to use right now.
 async function getValidToken() {
-  const saved = tokenStore.load();
+  const saved = await tokenStore.load();
   if (!saved || !saved.refresh_token || !saved.realmId) throw new NotConnectedError();
   if (isAccessTokenExpired(saved)) return refreshTokens(saved);
   return saved;
 }
 
 async function disconnect() {
-  const saved = tokenStore.load();
+  const saved = await tokenStore.load();
   if (saved) {
     try {
       oauthClient.setToken(saved);
@@ -100,7 +100,7 @@ async function disconnect() {
       console.warn('[qbo] revoke failed (ignored):', err.message);
     }
   }
-  tokenStore.clear();
+  await tokenStore.clear();
 }
 
 // ---------- Raw API calls ----------
@@ -179,7 +179,7 @@ async function getCompanyInfo() {
   const body = await qboGet(`companyinfo/${token.realmId}`);
   const info = body.CompanyInfo;
   // Remember the company name so the home page can show it without an API call.
-  tokenStore.save({ ...tokenStore.load(), companyName: info.CompanyName });
+  await tokenStore.save({ ...(await tokenStore.load()), companyName: info.CompanyName });
   return { info, raw: body };
 }
 

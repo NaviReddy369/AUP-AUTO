@@ -25,6 +25,11 @@ app.use('/api', dataRoutes);                             // /api/accounts, /api/
 // Unknown /api route -> JSON 404 instead of an HTML page.
 app.use('/api', (req, res) => res.status(404).json({ error: `No API route ${req.path}`, kind: 'server' }));
 
-app.listen(PORT, () => {
-  console.log(`AUP Auto running at http://localhost:${PORT}`);
-});
+// Locally (`node server.js`) we start a server. On Vercel, api/index.js imports the app instead.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`AUP Auto running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

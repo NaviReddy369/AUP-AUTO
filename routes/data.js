@@ -3,11 +3,12 @@
 const express = require('express');
 const qbo = require('../services/quickbooks');
 const { runRules } = require('../rules/exceptions');
+const store = require('../services/store');
 
 const router = express.Router();
 
-// Result of the last "Sync all" (kept in memory; lost on restart).
-let lastSync = null;
+// Result of the last "Sync all" is saved under this key (lastSync.json locally, Redis on Vercel).
+const LAST_SYNC = 'lastSync';
 
 // Wraps an async handler so any thrown error becomes a readable JSON error.
 const handle = (fn) => async (req, res) => {
@@ -77,14 +78,15 @@ router.get('/transactions', handle(async () => {
 
 // Exceptions use the last sync if there is one, otherwise fetch transactions now.
 router.get('/exceptions', handle(async () => {
+  const lastSync = await store.get(LAST_SYNC);
   let transactions = lastSync?.transactions;
   let source = lastSync ? `last sync (${lastSync.timestamp})` : 'live fetch (no sync yet)';
   if (!transactions) transactions = (await qbo.getTransactions()).transactions;
   return { source, ...runRules(transactions) };
 }));
 
-// "Sync all": pull everything once, keep it in memory, return a summary.
-router.post('/sync', handle(async () => {
+// Pull everything once, save it, return a summary. Used by "Sync all" and by the daily cron.
+async function runSync() {
   const company = await qbo.getCompanyInfo();
   const accounts = await qbo.getAccounts();
   const classes = await qbo.getClasses();
@@ -97,7 +99,8 @@ router.post('/sync', handle(async () => {
   };
   for (const type of qbo.TXN_TYPES) counts[type] = transactions.filter((t) => t.type === type).length;
 
-  lastSync = { timestamp: new Date().toISOString(), transactions };
+  const lastSync = { timestamp: new Date().toISOString(), transactions };
+  await store.set(LAST_SYNC, lastSync);
   const exceptions = runRules(transactions);
 
   return {
@@ -106,10 +109,23 @@ router.post('/sync', handle(async () => {
     counts,
     exceptionsFound: exceptions.items.length,
   };
+}
+
+router.post('/sync', handle(runSync));
+
+router.get('/sync', handle(async () => {
+  const lastSync = await store.get(LAST_SYNC);
+  return lastSync ? { timestamp: lastSync.timestamp, transactions: lastSync.transactions.length } : null;
 }));
 
-router.get('/sync', (req, res) => {
-  res.json(lastSync ? { timestamp: lastSync.timestamp, transactions: lastSync.transactions.length } : null);
-});
+// Called by Vercel Cron (see vercel.json). Vercel sends "Authorization: Bearer <CRON_SECRET>".
+// Running regularly also keeps the QuickBooks refresh token in use so the connection stays alive.
+router.get('/cron/sync', (req, res, next) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'Unauthorized', kind: 'server' });
+  }
+  next();
+}, handle(runSync));
 
 module.exports = router;

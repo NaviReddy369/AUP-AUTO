@@ -37,6 +37,25 @@ node server.js
 
 Open <http://localhost:3000>, click **Connect QuickBooks**, sign in, pick your sandbox company and click **Connect**.
 
+## 4. Deploy to Vercel
+
+Locally the app runs as a normal Express server. On Vercel, `api/index.js` exports the same app as a serverless function, and `vercel.json` routes `/api/*`, `/connect`, `/callback` and `/disconnect` to it. `public/` is served as static files.
+
+Vercel functions can't keep files or memory between requests, so tokens and the last sync go to **Redis** there:
+
+1. In the Vercel project go to **Storage** (or **Marketplace**) → add **Upstash Redis** → connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+2. **Settings → Environment Variables**, add:
+   ```
+   CLIENT_ID=...
+   CLIENT_SECRET=...
+   REDIRECT_URI=https://<your-app>.vercel.app/callback
+   CRON_SECRET=<any long random string>
+   ```
+3. In the Intuit developer portal → **Keys & credentials → Redirect URIs**, add `https://<your-app>.vercel.app/callback` (keep the localhost one too).
+4. Redeploy, open the Vercel URL and click **Connect QuickBooks** once. The tokens are now in Redis, so the hosted app stays connected without your PC.
+
+A **Vercel Cron** job (`vercel.json`) calls `/api/cron/sync` daily at 06:00 UTC. It refreshes the last sync and keeps the refresh token in use. Hobby plans allow one cron run per day; Pro allows more frequent runs.
+
 ## Pages
 
 | Page | What it calls |
@@ -60,7 +79,9 @@ routes/data.js            /api/company, /api/accounts, /api/bank-accounts, /api/
                           /api/transactions, /api/exceptions, POST /api/sync
 services/quickbooks.js    OAuth client, token auto-refresh, API calls, query pagination,
                           transaction normalizing
-services/tokenStore.js    Saves tokens + realmId to tokens.json
+services/tokenStore.js    Saves tokens + realmId (tokens.json locally, Redis on Vercel)
+services/store.js         Key/value store: JSON files locally, Upstash Redis on Vercel
+api/index.js              Vercel entry point (exports the Express app)
 rules/exceptions.js       The exception rules (add your own to the RULES array)
 public/                   HTML pages + app.js (shared helpers) + style.css
 ```
@@ -74,7 +95,7 @@ public/                   HTML pages + app.js (shared helpers) + style.css
 
 **Pagination:** QBO queries return at most 1000 rows. `query()` repeats the query with `STARTPOSITION 1, 1001, 2001…` until a page comes back short.
 
-**Sync all** keeps the result in memory. The Exceptions page uses the last sync, or fetches fresh data if you haven't synced since the server started.
+**Sync all** saves the result (`lastSync.json` locally, Redis on Vercel). The Exceptions page uses the last sync, or fetches fresh data if there isn't one.
 
 ## Troubleshooting
 
