@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exceptions preview – AUP Auto</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <main>
+    <h1>Exceptions preview</h1>
+    <p class="sub">Simple rules run on the synced transactions (see <code>rules/exceptions.js</code>)</p>
+    <div id="error" hidden></div>
+    <div class="toolbar"><button id="rawBtn" hidden>Show raw JSON</button></div>
+    <pre id="raw" hidden></pre>
+    <div id="content"></div>
+  </main>
+  <script src="/app.js"></script>
+  <script>
+    (async () => {
+      const content = document.getElementById('content');
+      content.innerHTML = '<p class="muted">Running rules…</p>';
+      try {
+        const data = await fetchJson('/api/exceptions');
+        const stats = '<div class="card"><p class="muted">Checked ' + data.checked + ' transactions from ' + esc(data.source) + '</p><div class="stats">' +
+          data.rules.map((r) => `<div class="stat"><div class="n">${r.count}</div><div class="l">${esc(r.label)}</div></div>`).join('') +
+          '</div></div>';
+        content.innerHTML = stats + '<div id="table"></div>';
+        renderTable(document.getElementById('table'), [
+          { key: 'date', label: 'Date' },
+          { key: 'type', label: 'Type' },
+          { key: 'docNumber', label: 'Doc #' },
+          { key: 'amount', label: 'Amount', format: (v) => (v == null ? '<span class="flag">missing</span>' : fmt.money(v)), className: 'num' },
+          { key: 'account', label: 'Account(s)' },
+          { key: 'class', label: 'Class', format: fmt.missing },
+          { key: 'rulesHit', label: 'Flags', format: (v) => v.map((l) => `<span class="tag">${esc(l)}</span>`).join('') },
+        ], data.items);
+        setupRawToggle(data);
+      } catch (err) {
+        content.innerHTML = '';
+        showError(err);
+      }
+    })();
+  </script>
+</body>
+</html>

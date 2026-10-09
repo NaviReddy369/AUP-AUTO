@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AUP Auto</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <main>
+    <h1>AUP Auto</h1>
+    <p class="sub">QuickBooks Online <strong>sandbox</strong> explorer – OAuth 2.0 learning demo</p>
+
+    <div id="error" hidden></div>
+    <div id="notice" class="notice" hidden></div>
+
+    <div class="card">
+      <h2>Connection</h2>
+      <p id="status"><span class="status-dot"></span>Checking…</p>
+      <div class="toolbar">
+        <a id="connectBtn" class="btn btn-primary" href="/connect" hidden>Connect QuickBooks</a>
+        <button id="disconnectBtn" class="btn-danger" hidden>Disconnect</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Sync all</h2>
+      <p class="muted">Pulls company info, accounts, classes and the last 50 of each transaction type, then runs the exception rules.</p>
+      <div class="toolbar"><button id="syncBtn" class="btn-primary">Sync all</button></div>
+      <div id="syncResult"></div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (params.get('error')) showError({ message: params.get('error') });
+    if (params.get('connected')) {
+      const n = document.getElementById('notice');
+      n.textContent = 'Connected to QuickBooks!';
+      n.hidden = false;
+    }
+    // Clean the ?error=... / ?connected=1 out of the address bar.
+    if (location.search) history.replaceState(null, '', '/');
+
+    async function loadStatus() {
+      const s = await fetchJson('/api/status');
+      const el = document.getElementById('status');
+      if (!s.keysConfigured) {
+        el.innerHTML = '<span class="status-dot"></span><strong>Not configured</strong> – add CLIENT_ID / CLIENT_SECRET to <code>.env</code> and restart the server.';
+      } else if (s.connected) {
+        el.innerHTML = `<span class="status-dot on"></span><strong>Connected</strong> to ${esc(s.companyName || 'company')} ` +
+          `<span class="muted">(realmId ${esc(s.realmId)})</span>`;
+      } else {
+        el.innerHTML = '<span class="status-dot"></span><strong>Not connected</strong>';
+      }
+      document.getElementById('connectBtn').hidden = s.connected;
+      document.getElementById('disconnectBtn').hidden = !s.connected;
+      document.getElementById('syncBtn').disabled = !s.connected;
+    }
+
+    document.getElementById('disconnectBtn').onclick = async () => {
+      if (!confirm('Disconnect from QuickBooks? Tokens will be revoked and deleted.')) return;
+      await fetchJson('/disconnect', { method: 'POST' });
+      document.getElementById('syncResult').innerHTML = '';
+      loadStatus();
+    };
+
+    document.getElementById('syncBtn').onclick = async (e) => {
+      const btn = e.target;
+      const out = document.getElementById('syncResult');
+      btn.disabled = true;
+      btn.textContent = 'Syncing…';
+      out.innerHTML = '';
+      try {
+        const r = await fetchJson('/api/sync', { method: 'POST' });
+        out.innerHTML =
+          `<p>Synced <strong>${esc(r.companyName)}</strong> at ${esc(new Date(r.timestamp).toLocaleString())}</p>` +
+          '<div class="stats">' +
+          Object.entries(r.counts).map(([k, v]) => `<div class="stat"><div class="n">${v}</div><div class="l">${esc(k)}</div></div>`).join('') +
+          `<div class="stat"><div class="n flag">${r.exceptionsFound}</div><div class="l"><a href="/exceptions.html">Exceptions</a></div></div>` +
+          '</div>';
+      } catch (err) {
+        showError(err);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sync all';
+        loadStatus();
+      }
+    };
+
+    loadStatus().catch(showError);
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Company Info – AUP Auto</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <main>
+    <h1>Company Info</h1>
+    <p class="sub"><code>GET /v3/company/{realmId}/companyinfo/{realmId}</code></p>
+    <div id="error" hidden></div>
+    <div class="toolbar"><button id="rawBtn" hidden>Show raw JSON</button></div>
+    <pre id="raw" hidden></pre>
+    <div id="content"></div>
+  </main>
+  <script src="/app.js"></script>
+  <script>
+    (async () => {
+      const content = document.getElementById('content');
+      content.innerHTML = '<p class="muted">Loading from QuickBooks…</p>';
+      try {
+        const data = await fetchJson('/api/company');
+        content.innerHTML = '<div class="card"><dl class="kv">' +
+          Object.entries(data.company).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v) || '<span class="muted">—</span>'}</dd>`).join('') +
+          '</dl></div>';
+        setupRawToggle(data.raw);
+      } catch (err) {
+        content.innerHTML = '';
+        showError(err);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chart of Accounts – AUP Auto</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <main>
+    <h1>Chart of Accounts</h1>
+    <p class="sub"><code>SELECT * FROM Account ORDERBY Name</code> (all pages)</p>
+    <div id="error" hidden></div>
+    <div class="toolbar"><button id="rawBtn" hidden>Show raw JSON</button></div>
+    <pre id="raw" hidden></pre>
+    <div id="content"></div>
+  </main>
+  <script src="/app.js"></script>
+  <script>
+    const columns = [
+      { key: 'name', label: 'Name' },
+      { key: 'type', label: 'Type' },
+      { key: 'subtype', label: 'Subtype' },
+      { key: 'balance', label: 'Balance', format: fmt.money, className: 'num' },
+      { key: 'active', label: 'Active', format: fmt.bool },
+    ];
+    loadTablePage('/api/accounts', columns);
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Transactions – AUP Auto</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <main>
+    <h1>Transactions</h1>
+    <p class="sub">Last 50 each of Purchase, Deposit, Invoice and JournalEntry (newest first)</p>
+    <div id="error" hidden></div>
+    <div class="toolbar"><button id="rawBtn" hidden>Show raw JSON</button></div>
+    <pre id="raw" hidden></pre>
+    <div id="content"></div>
+  </main>
+  <script src="/app.js"></script>
+  <script>
+    loadTablePage('/api/transactions', [
+      { key: 'date', label: 'Date' },
+      { key: 'type', label: 'Type' },
+      { key: 'docNumber', label: 'Doc #' },
+      { key: 'amount', label: 'Amount', format: fmt.money, className: 'num' },
+      { key: 'account', label: 'Account(s)' },
+      { key: 'class', label: 'Class', format: fmt.missing },
+    ]);
+  </script>
+</body>
+</html>

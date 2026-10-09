@@ -1,0 +1,15 @@
+{
+  "name": "aup-auto",
+  "version": "1.0.0",
+  "description": "Learning demo: connect to a QuickBooks Online sandbox company with OAuth 2.0 and explore its data",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "intuit-oauth": "^4.2.5"
+  }
+}
